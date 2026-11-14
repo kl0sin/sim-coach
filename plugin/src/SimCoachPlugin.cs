@@ -11,8 +11,9 @@ namespace SimCoach
     [PluginDescription("Records per-lap telemetry to CSV for post-session coaching analysis")]
     [PluginAuthor("SimCoach")]
     [PluginName("SimCoach Recorder")]
-    public class SimCoachPlugin : IPlugin, IDataPlugin
+    public class SimCoachPlugin : IPlugin, IDataPlugin, IWPFSettingsV2
     {
+        private AppServer appServer;
         private readonly SessionInfo info = new SessionInfo();
         private readonly Stopwatch clock = Stopwatch.StartNew();
         private Logger log;
@@ -29,6 +30,33 @@ namespace SimCoach
 
         public PluginManager PluginManager { get; set; }
 
+        // The SimCoach page in SimHub's left menu.
+        public string LeftMenuTitle { get { return "SimCoach"; } }
+
+        public System.Windows.Media.ImageSource PictureIcon
+        {
+            get { return SettingsPanel.Mark(System.Windows.Media.Color.FromArgb(150, 255, 255, 255), System.Windows.Media.Color.FromRgb(0xff, 0xd6, 0x0a)); }
+        }
+
+        public System.Windows.Controls.Control GetWPFSettingsControl(PluginManager pluginManager)
+        {
+            return new SettingsPanel(
+                delegate
+                {
+                    var s = new PanelState();
+                    s.Server = appServer == null ? "starting" : appServer.State;
+                    s.Recording = live;
+                    s.Track = info.Track ?? ""; s.Car = info.Car ?? "";
+                    s.LapsSaved = recorder == null ? 0 : recorder.LapsSaved;
+                    s.GuideCorners = coach == null ? -1 : coach.GuideCorners;
+                    s.OverlayOn = coach != null && coach.Enabled;
+                    return s;
+                },
+                delegate(string route) { return appServer == null ? "starting" : appServer.OpenWindow(route); },
+                delegate { if (coach != null) coach.Toggle(); },
+                System.IO.Path.Combine(BuildConfig.DataDir, "simcoach.log"));
+        }
+
         public void Init(PluginManager pluginManager)
         {
             log = new Logger(System.IO.Path.Combine(BuildConfig.DataDir, "simcoach.log"));
@@ -44,6 +72,8 @@ namespace SimCoach
             // The same timer lets the overlay notice a demo request or changed settings.
             coach = new CoachRunner(BuildConfig.DataDir, log);
             refresher = new PlanRefresher(BuildConfig.DataDir, log);
+            // The app's server runs for as long as SimHub does, so the app only has to be opened.
+            appServer = new AppServer(BuildConfig.DataDir, log.Write);
             idleTimer = new System.Threading.Timer(delegate
             {
                 // (a tick that takes longer than a second must not run into the next one)
@@ -82,6 +112,7 @@ namespace SimCoach
             AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
             if (idleTimer != null) { idleTimer.Dispose(); idleTimer = null; }
             if (refresher != null) refresher.Stop();
+            if (appServer != null) appServer.Stop();
             if (coach != null) coach.Dispose();
             if (recorder != null) recorder.Shutdown("shutdown");
             if (log != null) log.Write("plugin stopped");

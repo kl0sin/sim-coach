@@ -54,11 +54,11 @@ A session review: habits measured against the plan.
 game ──> SimHub ──> SimCoach plugin ──> data/laps/<game>/<track>/<car>/*.csv + *.json
                          ▲                               │
                          │                               ▼
-              data/guides/*.guide.txt  <──  Node app (analysis, target plan)  ──>  browser UI
+              data/guides/*.guide.txt  <──  Node app (analysis, target plan)  ──>  app window
               (the plan the overlay follows)             http://localhost:8377
 ```
 
-- `plugin/` is the SimHub plugin: recorder, coach engine, overlay window and sounds (C#).
+- `plugin/` is the SimHub plugin: recorder, coach engine, overlay window and sounds (C#). It also keeps the app's server running while SimHub is open, and builds `SimCoach.exe`, the launcher.
 - `app/` is the viewer and the analysis (Node.js, no dependencies, plain JavaScript in the browser).
 - `data/` is created on first use and holds everything personal: laps, track models, plans, settings, logs. It is git-ignored.
 
@@ -80,15 +80,25 @@ game ──> SimHub ──> SimCoach plugin ──> data/laps/<game>/<track>/<ca
    powershell -ExecutionPolicy Bypass -File plugin\build.ps1
    ```
 
-   This also runs the recorder and sound tests. If SimHub is not in `C:\Program Files (x86)\SimHub`, add `-SimHubDir "D:\path\to\SimHub"`.
+   This also runs the recorder and sound tests and builds the launcher, `plugin\build\SimCoach.exe`. If SimHub is not in `C:\Program Files (x86)\SimHub`, add `-SimHubDir "D:\path\to\SimHub"`.
 
-3. **Install it.** Close the game, then run `install-plugin.cmd`. It closes SimHub, copies `User.SimCoach.dll` into the SimHub folder and starts SimHub again. Enable the "SimCoach Recorder" plugin if SimHub asks.
+3. **Install it.** Close the game, then run `install-plugin.cmd`. It closes SimHub, copies `User.SimCoach.dll` into the SimHub folder, starts SimHub again and puts a SimCoach shortcut on the desktop and in the Start menu. Enable the "SimCoach Recorder" plugin if SimHub asks.
 
 4. **Drive.** Complete laps are saved by themselves.
 
-5. **Open the viewer.** Run `SimCoach.cmd` (or `npm start`). It serves on `http://localhost:8377`, on the local machine only.
+5. **Open the app.** Use the SimCoach shortcut, or the **Otwórz SimCoach** ("open") button on the SimCoach page in SimHub's left menu. See [Running the app](#running-the-app) below.
 
 6. **Drive with the overlay.** The first plan is made by itself after your first valid lap. Run the game in borderless window mode: Windows does not let other windows draw over exclusive fullscreen. Window position, size and sounds are set on the overlay page of the viewer.
+
+## Running the app
+
+The app is a local web page served by a small Node.js server on `http://localhost:8377`, reachable from this machine only. You do not have to start that server yourself:
+
+- **While SimHub is open, the plugin runs the server** in the background, without a console window. It starts it again by itself if it stops or if the app's files change (after a `git pull`, for instance). The SimCoach page in SimHub shows whether it is up.
+- **The SimCoach shortcut** (`plugin\build\SimCoach.exe`) opens the app in a window of its own: no tabs, no address bar, its own taskbar icon. This is an Edge or Chrome "app" window with a separate browser profile kept in `data\window`, so it is not a tab of your everyday browser. Without SimHub the launcher starts the server itself.
+- The server stops by itself once whoever started it is gone and the app window is closed. Closing SimHub while you are still looking at laps is fine.
+
+Without Edge or Chrome the page opens in the default browser. `SimCoach.cmd` in the repository folder starts the launcher too; before the launcher is built it falls back to a console window and the default browser (`npm start` does the same). Set `SIMCOACH_PORT` to move everything to another port.
 
 ## Track limits and the timed lap
 

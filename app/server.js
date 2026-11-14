@@ -1,5 +1,8 @@
 // SimCoach viewer: local web app for browsing recorded laps.
-// Usage: node app/server.js [--open]     (then http://localhost:8377)
+// Usage: node app/server.js [--open] [--parent <pid>]     (then http://localhost:8377)
+//   --open          open the app in the default browser once the server is up
+//   --parent <pid>  stop once that process is gone and the app's window is closed (the SimHub
+//                   plugin and the launcher start the server this way, so it is never left behind)
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -10,7 +13,11 @@ const PORT = Number(process.env.SIMCOACH_PORT) || 8377;
 const ROOT = path.join(__dirname, '..', 'data', 'laps');
 const PUBLIC = path.join(__dirname, 'public');
 const URL_LOCAL = 'http://localhost:' + PORT;
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.ico': 'image/x-icon'
+};
+const STARTED = new Date().toISOString();
 const openBrowser = () => exec('start "" "' + URL_LOCAL + '"');
 
 function send(res, code, type, body) {
@@ -22,6 +29,8 @@ const json = (res, code, body) => send(res, code, 'application/json; charset=utf
 const server = http.createServer((req, res) => {
   try {
     const url = new URL(req.url, URL_LOCAL);
+    // lets the plugin and the launcher tell this server from something else on the port
+    if (url.pathname === '/api/ping') return json(res, 200, { app: 'simcoach', pid: process.pid, started: STARTED });
     if (url.pathname === '/api/overview') return json(res, 200, laps.overview(ROOT));
     if (url.pathname === '/api/lap') {
       const lap = laps.get(ROOT, url.searchParams.get('id'));
@@ -97,6 +106,19 @@ server.on('error', err => {
     setTimeout(() => process.exit(0), 500);
   } else throw err;
 });
+
+// Started by the plugin or the launcher: stay for as long as that process lives or the app's own
+// window is open (the browser keeps "lockfile" in the window's profile folder while it runs).
+const parentAt = process.argv.indexOf('--parent');
+const parent = parentAt >= 0 ? Number(process.argv[parentAt + 1]) : 0;
+if (parent > 0) {
+  const windowLock = path.join(__dirname, '..', 'data', 'window', 'lockfile');
+  const alive = pid => {
+    try { process.kill(pid, 0); return true; } // signal 0 only asks whether the process is there
+    catch (err) { return err.code !== 'ESRCH'; }
+  };
+  setInterval(() => { if (!alive(parent) && !fs.existsSync(windowLock)) process.exit(0); }, 2000).unref();
+}
 
 // Local machine only: the viewer exposes driving data and should not be reachable from the network.
 server.listen(PORT, '127.0.0.1', () => {

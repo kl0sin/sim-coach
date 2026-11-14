@@ -39,14 +39,23 @@ Compile 'coach test' (@('/target:exe', "/out:$root\build\CoachTest.exe") + $coac
 Compile 'overlay preview' (@('/target:exe', "/out:$root\build\OverlayPreview.exe") + $wpf + $coach + "$root\src\OverlayPainter.cs" + "$root\test\OverlayPreview.cs")
 # (run by hand: it starts Node.js against the real data folder and takes 40 seconds)
 Compile 'refresh test' @('/target:exe', "/out:$root\build\RefreshTest.exe", "$root\src\LapRecorder.cs", "$root\src\PlanRefresh.cs", "$root\test\RefreshTest.cs")
+# (run by hand as well: it starts the app's server on a port of its own and takes 20 seconds)
+Compile 'app server test' @('/target:exe', "/out:$root\build\AppServerTest.exe", "$root\src\AppHost.cs", "$root\test\AppServerTest.cs")
+Compile 'panel preview' (@('/target:exe', "/out:$root\build\PanelPreview.exe") + $wpf + "$root\src\AppHost.cs" + "$root\src\SettingsPanel.cs" + "$root\test\PanelPreview.cs")
 Compile 'overlay demo' (@('/target:exe', "/out:$root\build\OverlayDemo.exe") + $wpf + $coach + $overlay + "$root\src\LapRecorder.cs" + "$root\test\OverlayDemo.cs")
 
 Compile 'sound check' (@('/target:exe', "/out:$root\build\SoundCheck.exe") + $wpf + $coach + $overlay + "$root\src\LapRecorder.cs" + "$root\test\SoundCheck.cs")
 & "$root\build\SoundCheck.exe"
 if ($LASTEXITCODE -ne 0) { throw 'sound check failed' }
 
+Write-Host '== launcher =='
+# SimCoach.exe: starts the app in a window of its own (no console, hence winexe)
+Compile 'launcher' @('/target:winexe', '/optimize+', "/out:$root\build\SimCoach.exe", "/win32icon:$project\app\public\favicon.ico",
+    "$root\src\AppHost.cs", "$root\launcher\Launcher.cs")
+
 Write-Host '== plugin =='
 Compile 'plugin' (@('/target:library', '/optimize+', "/out:$root\build\User.SimCoach.dll", "/lib:$SimHubDir",
     '/r:SimHub.Plugins.dll', '/r:GameReaderCommon.dll', '/r:ACSharedMemory.dll') + $wpf + $coach + $overlay +
-    "$root\src\LapRecorder.cs" + "$root\src\EvoRaw.cs" + "$root\src\PlanRefresh.cs" + "$root\src\SimCoachPlugin.cs" + "$root\obj\BuildConfig.cs")
+    "$root\src\LapRecorder.cs" + "$root\src\EvoRaw.cs" + "$root\src\PlanRefresh.cs" + "$root\src\AppHost.cs" + "$root\src\SettingsPanel.cs" +
+    "$root\src\SimCoachPlugin.cs" + "$root\obj\BuildConfig.cs")
 Write-Host "built $root\build\User.SimCoach.dll"

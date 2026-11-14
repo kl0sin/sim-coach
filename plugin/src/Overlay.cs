@@ -212,6 +212,8 @@ namespace SimCoach
         public volatile bool Enabled = true;
         public volatile CoachState Last = new CoachState();
         public bool DemoRunning { get { return demo != null && demo.IsAlive; } }
+        /// <summary>How many corners the loaded plan speaks about; -1 with no plan loaded.</summary>
+        public int GuideCorners { get { CoachEngine e = engine; return e == null ? -1 : e.Guide.Corners.Count; } }
 
         public CoachRunner(string dataDir, Logger log)
         {
