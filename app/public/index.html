@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SimCoach</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="home">
+<nav class="topbar">
+  <a class="brand" href="#/" aria-label="SimCoach, strona główna">
+    <!-- the mark: a corner with the racing line clipping its apex -->
+    <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+      <path d="M3 25V14A11 11 0 0 1 14 3h11" fill="none" stroke="currentColor" stroke-width="2" opacity="0.45"/>
+      <path d="M12 25V17a5 5 0 0 1 5-5h8" fill="none" stroke="currentColor" stroke-width="2" opacity="0.45"/>
+      <path d="M5.5 25C6 15 12 9.5 25 5.5" fill="none" stroke="var(--yellow)" stroke-width="2.6" stroke-linecap="round"/>
+    </svg>
+    <span class="word">SIMCOACH</span>
+  </a>
+  <div class="crumbs" id="crumbs"></div>
+  <div class="panelsw" id="panelsw">
+    <button id="swSide" aria-pressed="true" title="Pokaż lub schowaj listę okrążeń ( [ )">Okrążenia</button>
+    <button id="swCoach" aria-pressed="true" title="Pokaż lub schowaj panel coacha ( ] )">Coach</button>
+  </div>
+  <a class="ovlink" id="ovLink" href="#/overlay" title="Okno i dźwięki, które prowadzą w grze"><i></i><span>Nakładka</span></a>
+  <div class="status" id="status"></div>
+</nav>
+
+<!-- 1. games -->
+<section class="screen" id="screen-home">
+  <a class="homehero" id="homeHero" hidden>
+    <canvas id="home3d"></canvas>
+    <div class="herotext">
+      <p class="eyebrow">Ostatnia jazda</p>
+      <h1 id="heroTrack"></h1>
+      <div class="herostats" id="heroStats"></div>
+      <span class="cta">Otwórz tor →</span>
+    </div>
+  </a>
+  <div class="page">
+    <header class="pagehead"><span class="idx">01</span><h1>Gry</h1><p id="homeLead"></p></header>
+    <div class="board" id="games"></div>
+    <header class="pagehead minor"><span class="idx">02</span><h1>Ostatnie okrążenia</h1><p></p></header>
+    <div class="table" id="recent"></div>
+  </div>
+</section>
+
+<!-- 2. tracks of a game -->
+<section class="screen" id="screen-game">
+  <div class="page">
+    <header class="pagehead"><span class="idx">01</span><h1 id="gameTitle"></h1><p>Wybierz tor.</p></header>
+    <div class="board" id="tracks"></div>
+  </div>
+</section>
+
+<!-- 3. laps on a track -->
+<section class="screen" id="screen-track">
+  <div class="page">
+    <div class="hero">
+      <div class="hero3d" id="heroWrap"><canvas id="hero3d"></canvas><div class="herohint">Przeciągnij, aby obrócić · wysokości przewyższone 6×</div></div>
+      <div class="heroinfo">
+        <p class="eyebrow" id="trackEyebrow"></p>
+        <h1 id="trackTitle"></h1>
+        <div class="facts4" id="trackFacts"></div>
+      </div>
+    </div>
+    <div class="profile"><canvas id="profile"></canvas></div>
+    <p class="endsnote" id="endsNote" hidden></p>
+    <header class="pagehead minor"><span class="idx">02</span><h1>Sesje</h1><p id="sessLead"></p></header>
+    <div class="sessions" id="sessions"></div>
+    <header class="pagehead minor"><span class="idx">03</span><h1>Okrążenia</h1><p id="trackLead"></p></header>
+    <div class="filters">
+      <div class="pills" id="carPills"></div>
+      <label class="check"><input type="checkbox" id="onlyValid"><span>tylko ważne</span></label>
+      <label class="check"><input type="checkbox" id="withPartial"><span>pokaż niepełne</span></label>
+      <div class="seg" id="sortSeg" role="group" aria-label="Sortowanie"></div>
+    </div>
+    <div class="table short" id="lapTable"></div>
+  </div>
+</section>
+
+<!-- one session as a whole: what kept coming back lap after lap -->
+<section class="screen" id="screen-session">
+  <div class="page">
+    <header class="pagehead"><span class="idx">01</span><h1 id="sesTitle">Sesja</h1><p id="sesLead"></p></header>
+    <div class="sessions" id="sesRow"></div>
+    <div class="sesbody" id="sesBody"></div>
+  </div>
+</section>
+
+<!-- the in-game overlay: its window and sounds, set once for every track -->
+<section class="screen" id="screen-overlay">
+  <div class="page">
+    <a class="backlink" id="ovBack" href="#/" title="Wróć tam, skąd przyszedłeś (Esc)">← Wróć</a>
+    <header class="pagehead"><span class="idx">01</span><h1>Nakładka</h1><p>Okno i dźwięki, które prowadzą Cię w grze. Ustawiasz je raz, dla wszystkich torów.</p></header>
+    <div class="ovboard" id="ovBoard"></div>
+  </div>
+</section>
+
+<!-- 4. one lap -->
+<section class="screen" id="screen-lap">
+  <div class="app" id="app">
+    <aside class="side">
+      <div class="side-head">
+        <span id="count"></span>
+        <label class="check"><input type="checkbox" id="onlyFull" checked><span>tylko pełne</span></label>
+      </div>
+      <div class="laps" id="laps"></div>
+    </aside>
+    <div class="split v" id="splitSide" title="Przeciągnij, aby zmienić szerokość · dwuklik chowa"></div>
+
+    <main class="main">
+      <div class="view" id="view" hidden>
+        <header class="top">
+          <div class="headline">
+            <div class="lapline"><h1 id="title"></h1><div class="chips" id="chips"></div></div>
+            <p class="lapsub" id="sub"></p>
+          </div>
+          <div class="tiles" id="tiles"></div>
+        </header>
+        <div class="strip" id="strip"></div>
+        <div class="toolbar">
+          <div class="seg" id="modes" role="group" aria-label="Kolorowanie linii"></div>
+          <div class="legend" id="legend"></div>
+          <label class="check" id="aiToggle" title="Linia przejazdu komputerowego kierowcy z Assetto Corsa" hidden><input type="checkbox" id="showAI"><span>linia AI</span></label>
+          <label class="check" id="optToggle" title="Linia o najmniejszej krzywiźnie między granicami toru. Widoczna po przybliżeniu mapy." hidden><input type="checkbox" id="showOpt"><i class="sw dots"></i><span>linia optymalna</span></label>
+          <div class="maphint" id="mapHint"></div>
+          <div class="crumb" id="crumb"></div>
+        </div>
+        <div class="panel" id="mapwrap">
+          <canvas id="map"></canvas>
+          <canvas id="map3d" hidden></canvas>
+          <div id="tip"></div>
+          <div class="player" id="player">
+            <button id="play" aria-label="Odtwórz okrążenie">▶</button>
+            <button id="rate" title="Prędkość odtwarzania">4×</button>
+            <span class="clock" id="clock"></span>
+          </div>
+          <div class="zoom">
+            <button id="v2d" aria-pressed="true">Mapa</button>
+            <button id="v3d" aria-pressed="false">3D</button>
+            <button id="zin" aria-label="Powiększ">+</button>
+            <button id="zout" aria-label="Pomniejsz">−</button>
+            <button id="zfit">Całe okrążenie</button>
+          </div>
+        </div>
+        <div class="split h" id="splitTraces" title="Przeciągnij, aby zmienić wysokość telemetrii"></div>
+        <div class="panel traces" id="traces"></div>
+      </div>
+    </main>
+
+    <div class="split v" id="splitCoach" title="Przeciągnij, aby zmienić szerokość · dwuklik chowa"></div>
+    <aside class="coach" id="coach" hidden>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="notes" aria-selected="true">Coach</button>
+        <button role="tab" data-tab="corners" aria-selected="false">Zakręty</button>
+        <button role="tab" data-tab="compare" aria-selected="false">Porównanie</button>
+        <button role="tab" data-tab="plan" aria-selected="false">Plan</button>
+      </div>
+      <!-- the corner picked in any list or on the map: one card, whichever tab is open -->
+      <div class="kcard" id="kcard" hidden></div>
+      <div class="tabbody" id="tab-notes"></div>
+      <div class="tabbody" id="tab-corners" hidden></div>
+      <div class="tabbody" id="tab-compare" hidden></div>
+      <div class="tabbody" id="tab-plan" hidden></div>
+    </aside>
+  </div>
+</section>
+<script src="app.js"></script>
+</body>
+</html>

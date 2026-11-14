@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "simcoach",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["app/server.js"],
+      "port": 8377
+    }
+  ]
+}

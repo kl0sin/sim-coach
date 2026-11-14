@@ -1,0 +1,19 @@
+# Everything personal: recorded laps, track models, plans, overlay settings, logs.
+# Created on first use; never part of the repository.
+/data/
+
+# Build output. The plugin has the absolute path of the data folder baked in.
+/plugin/build/
+/plugin/obj/
+
+# One-off generated reports
+/reports/
+
+# Local tool settings (the dev-server entry is shared, the rest is per machine)
+/.claude/*
+!/.claude/launch.json
+
+node_modules/
+*.log
+Thumbs.db
+.DS_Store

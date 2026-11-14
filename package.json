@@ -1,0 +1,13 @@
+{
+  "name": "sim-coach",
+  "version": "0.1.0",
+  "description": "A virtual driving coach for sim racing: SimHub lap recorder, local lap analysis and an in-game coaching overlay.",
+  "private": true,
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/kl0sin/sim-coach.git" },
+  "scripts": {
+    "start": "node app/server.js --open",
+    "laps": "node app/cli.js laps",
+    "refresh": "node app/cli.js refresh"
+  }
+}

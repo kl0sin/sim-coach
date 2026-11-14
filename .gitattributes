@@ -1,0 +1,5 @@
+# Sources are UTF-8. Windows scripts keep CRLF so cmd.exe and PowerShell read them everywhere.
+* text=auto
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
