@@ -87,17 +87,18 @@ namespace SimCoach
             return sb.ToString();
         }
 
-        /// <summary>The mark: a corner with the racing line clipping its apex.</summary>
-        public static DrawingImage Mark(Color edge, Color line)
+        /// <summary>The mark: the letter S as two bends of a track, cut in two like sectors on a
+        /// timing screen. The same drawing is in app/public/index.html and plugin/icon.ps1.</summary>
+        public static DrawingImage Mark(Color top, Color bottom)
         {
+            var letter = new DrawingGroup();
+            // leaning 12 degrees forward around the middle of its 64-unit box
+            letter.Transform = new MatrixTransform(1, 0, -0.212557, 1, 6.8018, 0);
+            letter.Children.Add(new GeometryDrawing(null, new Pen(Paint(top), 11), Geometry.Parse("M49 14.5H29.5a8.75 8.75 0 0 0 0 17.5H30")));
+            letter.Children.Add(new GeometryDrawing(null, new Pen(Paint(bottom), 11), Geometry.Parse("M34 32H34.5a8.75 8.75 0 0 1 0 17.5H15")));
             var group = new DrawingGroup();
-            var edgePen = new Pen(Paint(edge), 2.0);
-            var linePen = new Pen(Paint(line), 2.8);
-            linePen.StartLineCap = PenLineCap.Round; linePen.EndLineCap = PenLineCap.Round;
-            group.Children.Add(new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(0, 0, 28, 28))));
-            group.Children.Add(new GeometryDrawing(null, edgePen, Geometry.Parse("M3 25V14A11 11 0 0 1 14 3h11")));
-            group.Children.Add(new GeometryDrawing(null, edgePen, Geometry.Parse("M12 25V17a5 5 0 0 1 5-5h8")));
-            group.Children.Add(new GeometryDrawing(null, linePen, Geometry.Parse("M5.5 25C6 15 12 9.5 25 5.5")));
+            group.Children.Add(new GeometryDrawing(Brushes.Transparent, null, new RectangleGeometry(new Rect(4, 4, 56, 56))));
+            group.Children.Add(letter);
             var image = new DrawingImage(group);
             image.Freeze();
             return image;
@@ -112,7 +113,7 @@ namespace SimCoach
             var brand = new StackPanel();
             brand.Orientation = Orientation.Horizontal;
             var mark = new Image();
-            mark.Source = Mark(Color.FromArgb(115, Ink.R, Ink.G, Ink.B), Yellow); mark.Width = 26; mark.Height = 26;
+            mark.Source = Mark(Yellow, Ink); mark.Width = 26; mark.Height = 26;
             var word = Text(Spaced("SIMCOACH"), 19, Ink);
             word.FontWeight = FontWeights.Bold; word.Margin = new Thickness(12, 2, 0, 0);
             brand.Children.Add(mark); brand.Children.Add(word);

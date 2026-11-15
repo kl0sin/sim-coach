@@ -12,11 +12,13 @@
 <body data-screen="home">
 <nav class="topbar">
   <a class="brand" href="#/" aria-label="SimCoach, strona główna">
-    <!-- the mark: a corner with the racing line clipping its apex -->
-    <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
-      <path d="M3 25V14A11 11 0 0 1 14 3h11" fill="none" stroke="currentColor" stroke-width="2" opacity="0.45"/>
-      <path d="M12 25V17a5 5 0 0 1 5-5h8" fill="none" stroke="currentColor" stroke-width="2" opacity="0.45"/>
-      <path d="M5.5 25C6 15 12 9.5 25 5.5" fill="none" stroke="var(--yellow)" stroke-width="2.6" stroke-linecap="round"/>
+    <!-- the mark: the letter S as two bends of a track, cut in two like sectors on a timing screen.
+         The same drawing is in plugin/icon.ps1 (the icon) and SettingsPanel.Mark (the SimHub page). -->
+    <svg class="mark" viewBox="4 4 56 56" aria-hidden="true">
+      <g transform="translate(32 32) skewX(-12) translate(-32 -32)" fill="none" stroke-width="11">
+        <path d="M49 14.5H29.5a8.75 8.75 0 0 0 0 17.5H30" stroke="var(--yellow)"/>
+        <path d="M34 32H34.5a8.75 8.75 0 0 1 0 17.5H15" stroke="currentColor"/>
+      </g>
     </svg>
     <span class="word">SIMCOACH</span>
   </a>

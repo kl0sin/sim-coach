@@ -35,7 +35,7 @@ namespace SimCoach
 
         public System.Windows.Media.ImageSource PictureIcon
         {
-            get { return SettingsPanel.Mark(System.Windows.Media.Color.FromArgb(150, 255, 255, 255), System.Windows.Media.Color.FromRgb(0xff, 0xd6, 0x0a)); }
+            get { return SettingsPanel.Mark(System.Windows.Media.Color.FromRgb(0xff, 0xd6, 0x0a), System.Windows.Media.Color.FromRgb(0xed, 0xeb, 0xe6)); }
         }
 
         public System.Windows.Controls.Control GetWPFSettingsControl(PluginManager pluginManager)
