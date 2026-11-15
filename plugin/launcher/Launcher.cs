@@ -34,7 +34,10 @@ namespace SimCoach
             bool ownWindow = AppHost.HasAppWindow;
             Process server = null;
             string lastError = "";
-            if (AppHost.Probe(1500) == Port.Free)
+            Port port = AppHost.Probe(1500);
+            // a server still running the code from before an update makes room for a fresh one
+            if (port == Port.Ours && AppHost.Stale(repo) && AppHost.Quit()) port = Port.Free;
+            if (port == Port.Free)
             {
                 try { server = AppHost.StartServer(repo, ownWindow, delegate(string line) { lastError = line; }); }
                 catch (Exception ex)

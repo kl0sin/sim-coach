@@ -67,6 +67,39 @@ namespace SimCoach
         }
 
         /// <summary>
+        /// Whether the SimCoach server now answering was started before the app's files last
+        /// changed: it still runs the old code. False when that cannot be told.
+        /// </summary>
+        public static bool Stale(string repo)
+        {
+            try
+            {
+                string body;
+                using (var web = new WebClient()) { web.Proxy = null; body = web.DownloadString("http://127.0.0.1:" + PortNumber + "/api/ping"); }
+                int at = body.IndexOf("\"started\":\"", StringComparison.Ordinal);
+                if (at < 0) return false;
+                at += 11;
+                DateTime started = DateTime.Parse(body.Substring(at, body.IndexOf('"', at) - at), System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.RoundtripKind).ToUniversalTime();
+                return CodeStamp(repo) > started;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>Asks the running SimCoach server to end, and waits until the port is free. False if it stays.</summary>
+        public static bool Quit()
+        {
+            try
+            {
+                using (var web = new WebClient()) { web.Proxy = null; web.UploadString("http://127.0.0.1:" + PortNumber + "/api/quit", ""); }
+            }
+            catch { return false; } // an older server does not know the request
+            DateTime until = DateTime.UtcNow.AddSeconds(5);
+            while (DateTime.UtcNow < until) { if (Probe(1000) == Port.Free) return true; Thread.Sleep(150); }
+            return false;
+        }
+
+        /// <summary>
         /// Starts the server without a console window. When tied, it stops by itself once the
         /// process that started it is gone and the app's window is closed. Throws when Node.js is
         /// not installed.
@@ -189,7 +222,7 @@ namespace SimCoach
         private readonly object gate = new object();
         private Timer timer;
         private Process owned;
-        private DateTime startedAt, codeStamp, notBefore = DateTime.MinValue;
+        private DateTime startedAt, codeStamp, askedToQuit, notBefore = DateTime.MinValue;
         private int quickExits, busy;
         private bool off;
         private volatile string state = "starting";
@@ -231,8 +264,18 @@ namespace SimCoach
                         }
                     }
                     Port port = AppHost.Probe(1500);
-                    if (port == Port.Ours) { state = "external"; quickExits = 0; return; }
-                    if (port == Port.Taken) { if (state != "taken") log("app server: port " + AppHost.PortNumber + " is used by another program"); state = "taken"; return; }
+                    if (port == Port.Ours)
+                    {
+                        // A server left over from before (SimHub was restarted with the app's
+                        // window open) keeps the code it was started with: replace it once the
+                        // app's files are newer than it is.
+                        DateTime stamp = AppHost.CodeStamp(repo);
+                        if (stamp == askedToQuit || !AppHost.Stale(repo)) { state = "external"; quickExits = 0; return; }
+                        askedToQuit = stamp; // once per change: a server that will not go is left alone
+                        log("app server: the one running has older code, replacing it");
+                        if (!AppHost.Quit()) { log("app server: it did not make room"); state = "external"; return; }
+                    }
+                    else if (port == Port.Taken) { if (state != "taken") log("app server: port " + AppHost.PortNumber + " is used by another program"); state = "taken"; return; }
                     if (DateTime.UtcNow < notBefore) return;
                     if (quickExits >= 3)
                     {

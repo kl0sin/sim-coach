@@ -31,6 +31,14 @@ const server = http.createServer((req, res) => {
     const url = new URL(req.url, URL_LOCAL);
     // lets the plugin and the launcher tell this server from something else on the port
     if (url.pathname === '/api/ping') return json(res, 200, { app: 'simcoach', pid: process.pid, started: STARTED });
+    // A server left running with older code is told to make room for a fresh one (the plugin
+    // and the launcher ask). Not for another site open in the browser.
+    if (url.pathname === '/api/quit' && req.method === 'POST') {
+      const origin = req.headers.origin;
+      if (origin && origin !== URL_LOCAL && origin !== 'http://127.0.0.1:' + PORT) return json(res, 403, { error: 'Obce źródło' });
+      json(res, 200, { quitting: true });
+      return void setTimeout(() => process.exit(0), 100);
+    }
     if (url.pathname === '/api/overview') return json(res, 200, laps.overview(ROOT));
     if (url.pathname === '/api/lap') {
       const lap = laps.get(ROOT, url.searchParams.get('id'));
@@ -56,6 +64,7 @@ const server = http.createServer((req, res) => {
           else if (action === 'stop') laps.overlayDemo(ROOT, null);
           else if (action === 'settings') laps.overlaySettings(ROOT, {
             enabled: q.has('enabled') ? q.get('enabled') === '1' : undefined, move: q.has('move') ? q.get('move') === '1' : undefined,
+            inputs: q.has('inputs') ? q.get('inputs') === '1' : undefined,
             scale: num('scale'), x: num('x'), top: num('top'), sound: num('sound'), volume: num('volume'), theme: num('theme')
           });
           else if (action === 'beep') laps.overlayBeep(ROOT);

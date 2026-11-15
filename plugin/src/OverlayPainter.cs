@@ -9,7 +9,9 @@ namespace SimCoach
 {
     public static class OverlayPainter
     {
-        public const double Width = 640, Height = 138;
+        public const double Width = 640, Height = 138, InputsHeight = 60;
+        /// <summary>The height of the overlay, with or without the inputs strip.</summary>
+        public static double HeightFor(bool inputs) { return Height + (inputs ? InputsHeight : 0); }
         private const double CapHeight = 0.71; // capitals of this typeface, as a share of the font size
 
         private static readonly Brush Panel = Frozen(Color.FromArgb(232, 10, 10, 11));
@@ -44,17 +46,30 @@ namespace SimCoach
             return w;
         }
 
-        public static void Draw(DrawingContext dc, CoachState st, double dip)
+        /// <summary>The overlay without the inputs strip.</summary>
+        public static void Draw(DrawingContext dc, CoachState st, double dip) { Draw(dc, st, dip, null); }
+
+        /// <summary>
+        /// The whole overlay. With a trace, the inputs strip is drawn under the coach's rows:
+        /// what the pedals and the steering wheel are doing, now and over the last seconds.
+        /// </summary>
+        public static void Draw(DrawingContext dc, CoachState st, double dip, InputTrace trace)
+        {
+            double total = HeightFor(trace != null);
+            dc.DrawRectangle(Panel, new Pen(Line, 1), new Rect(0.5, 0.5, Width - 1, total - 1));
+            Coach(dc, st, dip, total);
+            if (trace != null) Inputs(dc, st, dip, trace);
+        }
+
+        private static void Coach(DrawingContext dc, CoachState st, double dip, double total)
         {
             const double W = Width, H = Height, pad = 20;
-            dc.DrawRectangle(Panel, new Pen(Line, 1), new Rect(0.5, 0.5, W - 1, H - 1));
             if (st == null || !st.Active) { Put(dc, dip, "SIMCOACH · POZA TOREM Z PLANU", 16, Muted, false, pad, H / 2, 0, 0); return; }
 
             bool flash = st.BrakeNow || st.GasNow || st.LiftNow;
             // one colour per thing to do: yellow braking point ahead, red braking, white lift, green throttle
             Brush doing = st.BrakeNow || st.Phase == 3 ? Brake : st.GasNow || st.Phase == 2 ? Gas : st.LiftNow || st.Phase == 4 ? Ink : st.Phase == 1 ? Yellow : null;
-            dc.DrawRectangle(doing ?? Line, null, new Rect(0, 0, 5, H));
-
+            dc.DrawRectangle(doing ?? Line, null, new Rect(0, 0, 5, total));
             // row 1: the corner, and the time against the reference lap
             const double y1 = 30;
             Put(dc, dip, st.Corner.Length > 0 ? st.Corner : "—", 26, Ink, true, pad, y1, 0, 380);
@@ -133,5 +148,120 @@ namespace SimCoach
             }
             Put(dc, dip, st.Message.ToUpperInvariant(), 18, Ink, false, x, y3, 0, W - pad - x);
         }
+
+        // The inputs strip: a trace of throttle, brake and steering over the last seconds (the
+        // newest at the right edge), the two pedals as bars with their percentages, and the
+        // steering wheel turned as far as the real one, with its angle.
+        private static void Inputs(DrawingContext dc, CoachState st, double dip, InputTrace trace)
+        {
+            const double W = Width, pad = 20, top = Height, mid = Height + InputsHeight / 2, gh = 40, gx = pad, gw = 330;
+            dc.DrawRectangle(Line, null, new Rect(pad, top, W - 2 * pad, 1));
+            double throttle = st == null ? 0 : Clamp(st.Throttle / 100, 0, 1), brake = st == null ? 0 : Clamp(st.Brake / 100, 0, 1), steer = st == null ? 0 : st.Steer;
+
+            // the trace
+            Rect graph = new Rect(gx, mid - gh / 2, gw, gh);
+            dc.DrawRectangle(Track, null, graph);
+            dc.DrawRectangle(Line, null, new Rect(gx, mid, gw, 1));
+            dc.PushClip(new RectangleGeometry(graph));
+            Series(dc, trace, graph, 2, SteerPen);
+            Series(dc, trace, graph, 0, GasPen);
+            Series(dc, trace, graph, 1, BrakePen);
+            dc.Pop();
+
+            // the pedals now
+            double bx = gx + gw + 16;
+            const double bw = 14;
+            dc.DrawRectangle(Track, null, new Rect(bx, graph.Y, bw, gh));
+            dc.DrawRectangle(Brake, null, new Rect(bx, graph.Bottom - gh * brake, bw, gh * brake));
+            dc.DrawRectangle(Track, null, new Rect(bx + bw + 4, graph.Y, bw, gh));
+            dc.DrawRectangle(Gas, null, new Rect(bx + bw + 4, graph.Bottom - gh * throttle, bw, gh * throttle));
+            double tx = bx + 2 * bw + 16, vx = tx + 68;
+            Put(dc, dip, "HAMULEC", 11, Muted, false, tx, mid - 10, 0, 0);
+            Put(dc, dip, Math.Round(brake * 100).ToString(CultureInfo.InvariantCulture), 18, brake > 0.005 ? Ink : Muted, true, vx, mid - 10, 1, 0);
+            Put(dc, dip, "GAZ", 11, Muted, false, tx, mid + 10, 0, 0);
+            Put(dc, dip, Math.Round(throttle * 100).ToString(CultureInfo.InvariantCulture), 18, throttle > 0.005 ? Ink : Muted, true, vx, mid + 10, 1, 0);
+
+            // the steering wheel
+            const double r = 17;
+            var c = new Point(vx + 46, mid);
+            dc.PushTransform(new RotateTransform(steer, c.X, c.Y));
+            dc.DrawEllipse(null, WheelPen, c, r, r);
+            dc.DrawLine(SpokePen, new Point(c.X - r, c.Y), new Point(c.X + r, c.Y));
+            dc.DrawLine(SpokePen, new Point(c.X, c.Y), new Point(c.X, c.Y + r));
+            dc.DrawRectangle(Yellow, null, new Rect(c.X - 2.5, c.Y - r - 2.5, 5, 7)); // the stripe at twelve o'clock
+            dc.Pop();
+            double deg = Math.Round(Math.Abs(steer));
+            double w = Put(dc, dip, deg.ToString(CultureInfo.InvariantCulture) + "°", 22, deg >= 1 ? Ink : Muted, true, W - pad, mid, 1, 0);
+            if (deg >= 1) Put(dc, dip, steer < 0 ? "L" : "P", 13, Muted, true, W - pad - w - 5, mid, 1, 0);
+        }
+
+        private static readonly Pen GasPen = FrozenPen(Color.FromRgb(0x3e, 0xe6, 0xab), 2);
+        private static readonly Pen BrakePen = FrozenPen(Color.FromRgb(0xff, 0x4a, 0x2b), 2);
+        private static readonly Pen SteerPen = FrozenPen(Color.FromArgb(120, 0xed, 0xeb, 0xe6), 1);
+        private static readonly Pen WheelPen = FrozenPen(Color.FromRgb(0xed, 0xeb, 0xe6), 3.5);
+        private static readonly Pen SpokePen = FrozenPen(Color.FromRgb(0xed, 0xeb, 0xe6), 3);
+
+        private static Pen FrozenPen(Color c, double width)
+        {
+            var p = new Pen(Frozen(c), width);
+            p.LineJoin = PenLineJoin.Round;
+            p.Freeze();
+            return p;
+        }
+
+        private static double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+        // One line of the trace. what: 0 throttle, 1 brake (0 at the bottom, 100 % at the top),
+        // 2 steering (straight ahead on the middle line, half a turn either way fills the height).
+        private static void Series(DrawingContext dc, InputTrace trace, Rect box, int what, Pen pen)
+        {
+            int n = trace.Count;
+            if (n < 2) return;
+            double newest = trace.Time(n - 1);
+            var g = new StreamGeometry();
+            using (StreamGeometryContext ctx = g.Open())
+            {
+                bool begun = false;
+                for (int i = 0; i < n; i++)
+                {
+                    double age = newest - trace.Time(i);
+                    if (age > InputTrace.Seconds) continue;
+                    double v = what == 2 ? 0.5 + Clamp(trace.Steer(i) / 360, -0.5, 0.5) : Clamp((what == 0 ? trace.Throttle(i) : trace.Brake(i)) / 100, 0, 1);
+                    // (a pedal at rest or flat out stays a visible line inside the box)
+                    var p = new Point(box.Right - age / InputTrace.Seconds * box.Width, box.Bottom - 1 - v * (box.Height - 2));
+                    if (!begun) { ctx.BeginFigure(p, false, false); begun = true; }
+                    else ctx.LineTo(p, true, true);
+                }
+            }
+            g.Freeze();
+            dc.DrawGeometry(null, pen, g);
+        }
+    }
+
+    /// <summary>
+    /// The pedals and the steering angle of the last few seconds, for the trace in the overlay.
+    /// A ring: adding the newest pushes the oldest out. Used from one thread only.
+    /// </summary>
+    public sealed class InputTrace
+    {
+        public const double Seconds = 5.0;
+        private const int Size = 400; // five seconds at 60 a second, with room to spare
+        private readonly double[] time = new double[Size], throttle = new double[Size], brake = new double[Size], steer = new double[Size];
+        private int start, count;
+
+        public int Count { get { return count; } }
+        public double Time(int i) { return time[(start + i) % Size]; }
+        public double Throttle(int i) { return throttle[(start + i) % Size]; }
+        public double Brake(int i) { return brake[(start + i) % Size]; }
+        public double Steer(int i) { return steer[(start + i) % Size]; }
+
+        public void Add(double t, double throttleNow, double brakeNow, double steerNow)
+        {
+            int at = (start + count) % Size;
+            if (count == Size) { at = start; start = (start + 1) % Size; } else count++;
+            time[at] = t; throttle[at] = throttleNow; brake[at] = brakeNow; steer[at] = steerNow;
+        }
+
+        public void Clear() { start = 0; count = 0; }
     }
 }

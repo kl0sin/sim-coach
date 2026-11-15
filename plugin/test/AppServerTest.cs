@@ -73,6 +73,25 @@ namespace SimCoach
             Thread.Sleep(1500);
             Check(AppHost.Probe(1500) == Port.Free, "after stopping, nothing answers on the port");
 
+            // A server left over from an earlier run (SimHub restarted with the app's window
+            // open), and the app's files changed since: it has to be replaced, not adopted.
+            Process left = AppHost.StartServer(repo, false, null);
+            int leftPid = WaitForPid(0, 15);
+            Check(leftPid != 0, "a server somebody else started answers");
+            Check(!AppHost.Stale(repo), "it is not taken for old while the files are as it found them");
+            Thread.Sleep(1100);
+            File.SetLastWriteTimeUtc(Path.Combine(repo, "app", "cli.js"), DateTime.UtcNow);
+            Check(AppHost.Stale(repo), "after a file changed it is seen as running older code");
+            var keeper = new AppServer(Path.Combine(repo, "data"), delegate(string line) { Console.WriteLine("        log: " + line); });
+            int fresh = WaitForPid(leftPid, 20);
+            Check(fresh != 0, "the plugin replaces it with a server of its own");
+            Check(left.HasExited, "and the left-over one has ended");
+            keeper.Stop();
+            try { Process.GetProcessById(fresh).Kill(); } catch { }
+            try { if (!left.HasExited) left.Kill(); } catch { }
+            Thread.Sleep(1500);
+            Check(AppHost.Probe(1500) == Port.Free, "nothing is left on the port");
+
             Console.WriteLine(failures == 0 ? "ALL PASSED" : failures + " FAILED");
             return failures == 0 ? 0 : 1;
         }

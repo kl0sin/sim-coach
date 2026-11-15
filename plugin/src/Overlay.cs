@@ -19,9 +19,10 @@ namespace SimCoach
     internal sealed class OverlayElement : FrameworkElement
     {
         public CoachState State;
+        public InputTrace Trace; // null: the inputs strip is off
         protected override void OnRender(DrawingContext dc)
         {
-            OverlayPainter.Draw(dc, State, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            OverlayPainter.Draw(dc, State, VisualTreeHelper.GetDpi(this).PixelsPerDip, Trace);
         }
     }
 
@@ -37,14 +38,14 @@ namespace SimCoach
         [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hwnd, int index, int value);
         private const int ExStyle = -20, Transparent = 0x20, ToolWindow = 0x80, NoActivate = 0x08000000;
 
-        public OverlayWindow(double scale, double x, double top)
+        public OverlayWindow(double scale, double x, double top, bool inputs)
         {
             Title = "SimCoach overlay";
             WindowStyle = WindowStyle.None; AllowsTransparency = true; Background = Brushes.Transparent;
             Topmost = true; ShowInTaskbar = false; ShowActivated = false; ResizeMode = ResizeMode.NoResize; Focusable = false;
-            View.Width = OverlayPainter.Width; View.Height = OverlayPainter.Height;
+            View.Width = OverlayPainter.Width;
             Content = View;
-            Place(scale, x, top);
+            Place(scale, x, top, inputs);
             MouseLeftButtonDown += delegate(object s, MouseButtonEventArgs e) { if (movable) { try { DragMove(); } catch { } } };
             LocationChanged += delegate
             {
@@ -56,10 +57,13 @@ namespace SimCoach
 
         /// <summary>Size, and where on the main screen: x and top are shares of the room left
         /// beside and below the window (0.5 = centred, 0 = left or top edge, 1 = right or bottom edge).</summary>
-        public void Place(double scale, double x, double top)
+        public void Place(double scale, double x, double top, bool inputs)
         {
             placing = true;
-            Width = OverlayPainter.Width * scale; Height = OverlayPainter.Height * scale;
+            // with the inputs strip the window is taller, and keeps a trace of the last seconds
+            if (inputs != (View.Trace != null)) View.Trace = inputs ? new InputTrace() : null;
+            View.Height = OverlayPainter.HeightFor(inputs);
+            Width = OverlayPainter.Width * scale; Height = View.Height * scale;
             View.LayoutTransform = new ScaleTransform(scale, scale);
             Left = Math.Max(0, (SystemParameters.PrimaryScreenWidth - Width) * x);
             Top = Math.Max(0, (SystemParameters.PrimaryScreenHeight - Height) * top);
@@ -93,6 +97,8 @@ namespace SimCoach
         private readonly Thread thread;
         private readonly ManualResetEvent ready = new ManualResetEvent(false);
         private readonly double scale, x, top;
+        private readonly bool inputs;
+        private readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
         private Dispatcher dispatcher;
         private OverlayWindow window;
         private volatile CoachState latest;
@@ -113,9 +119,9 @@ namespace SimCoach
             Message = "Złap okno myszą i przeciągnij", MessageKind = 1
         };
 
-        public OverlayHost(double scale, double x, double top)
+        public OverlayHost(double scale, double x, double top, bool inputs)
         {
-            this.scale = scale; this.x = x; this.top = top;
+            this.scale = scale; this.x = x; this.top = top; this.inputs = inputs;
             thread = new Thread(Run);
             thread.IsBackground = true; thread.Name = "SimCoach overlay";
             thread.SetApartmentState(ApartmentState.STA);
@@ -127,7 +133,7 @@ namespace SimCoach
         {
             try
             {
-                window = new OverlayWindow(scale, x, top);
+                window = new OverlayWindow(scale, x, top, inputs);
                 window.Moved = delegate(double mx, double mt) { lock (movedGate) { moved = true; movedX = mx; movedTop = mt; } };
                 dispatcher = Dispatcher.CurrentDispatcher;
                 var timer = new DispatcherTimer();
@@ -147,9 +153,11 @@ namespace SimCoach
             CoachState s = latest;
             // nothing new for a moment (pause, menu, game closed): get out of the way
             bool live = s != null && DateTime.UtcNow.Ticks - Interlocked.Read(ref lastUpdateTicks) < TimeSpan.TicksPerSecond * 3 / 2;
-            if (!live && !move) { if (window.IsVisible) window.Hide(); return; }
+            InputTrace trace = window.View.Trace;
+            if (!live && !move) { if (window.IsVisible) window.Hide(); if (trace != null) trace.Clear(); return; }
             if (!window.IsVisible) window.Show();
             window.View.State = live ? s : Sample;
+            if (trace != null) trace.Add(clock.Elapsed.TotalSeconds, window.View.State.Throttle, window.View.State.Brake, window.View.State.Steer);
             window.View.InvalidateVisual();
             if (++frames % 90 == 0) { window.Topmost = false; window.Topmost = true; } // games like to climb back on top
         }
@@ -170,9 +178,9 @@ namespace SimCoach
             lock (movedGate) { newX = movedX; newTop = movedTop; bool was = moved; moved = false; return was; }
         }
 
-        public void Place(double newScale, double newX, double newTop)
+        public void Place(double newScale, double newX, double newTop, bool newInputs)
         {
-            if (dispatcher != null) dispatcher.BeginInvoke(new Action(() => window.Place(newScale, newX, newTop)));
+            if (dispatcher != null) dispatcher.BeginInvoke(new Action(() => window.Place(newScale, newX, newTop, newInputs)));
         }
 
         public void Dispose()
@@ -206,6 +214,7 @@ namespace SimCoach
         private int sound = 2;       // 0 off, 1 a tone at the braking and throttle points, 2 with two ticks counting down to the braking point
         private int theme = 1;       // which set of sounds (SoundBank.Themes)
         private bool move;           // the window is being placed with the mouse
+        private bool inputs;         // the strip with pedals and steering wheel under the coach's rows
         private DateTime configStamp;
         private int soundErrors;
 
@@ -234,7 +243,7 @@ namespace SimCoach
         private void WriteConfig()
         {
             File.WriteAllText(ConfigFile, "enabled=" + (Enabled ? "1" : "0") + "\r\nscale=" + Num(scale) + "\r\nx=" + Num(x) + "\r\ntop=" + Num(top)
-                + "\r\nsound=" + sound.ToString(CultureInfo.InvariantCulture) + "\r\nvolume=" + Num(volume) + "\r\ntheme=" + theme.ToString(CultureInfo.InvariantCulture) + "\r\nmove=" + (move ? "1" : "0") + "\r\n");
+                + "\r\nsound=" + sound.ToString(CultureInfo.InvariantCulture) + "\r\nvolume=" + Num(volume) + "\r\ntheme=" + theme.ToString(CultureInfo.InvariantCulture) + "\r\ninputs=" + (inputs ? "1" : "0") + "\r\nmove=" + (move ? "1" : "0") + "\r\n");
             configStamp = File.GetLastWriteTimeUtc(ConfigFile);
         }
 
@@ -245,6 +254,7 @@ namespace SimCoach
         //   sound=2      0 off, 1 tones at the points, 2 with a count-down to the braking point
         //   volume=0.6   0..1
         //   theme=1      the set of sounds: 0 soft, 1 race, 2 neon, 3 pulse, 4 own files (data\sounds\tick.wav, brake.wav, gas.wav, lift.wav)
+        //   inputs=0     1: a strip with the pedals and the steering wheel under the coach's rows
         //   move=0       1 while the window is being dragged into place
         private void ReadConfig()
         {
@@ -254,7 +264,7 @@ namespace SimCoach
                 DateTime stamp = File.GetLastWriteTimeUtc(ConfigFile);
                 if (stamp == configStamp) return;
                 configStamp = stamp;
-                double oldScale = scale, oldX = x, oldTop = top;
+                double oldScale = scale, oldX = x, oldTop = top; bool oldInputs = inputs;
                 foreach (string line in File.ReadAllLines(ConfigFile))
                 {
                     int eq = line.IndexOf('=');
@@ -264,6 +274,7 @@ namespace SimCoach
                     bool num = double.TryParse(v.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out n);
                     if (k == "enabled") Enabled = v != "0";
                     else if (k == "move") move = v == "1";
+                    else if (k == "inputs") inputs = v == "1";
                     else if (k == "scale" && num) scale = Math.Max(0.5, Math.Min(3.0, n));
                     else if (k == "x" && num) x = Math.Max(0.0, Math.Min(1.0, n));
                     else if (k == "top" && num) top = Math.Max(0.0, Math.Min(1.0, n));
@@ -271,7 +282,7 @@ namespace SimCoach
                     else if (k == "volume" && num) volume = Math.Max(0.05, Math.Min(1.0, n));
                     else if (k == "theme" && num) theme = (int)Math.Max(0, Math.Min(SoundBank.Themes.Length - 1, n));
                 }
-                if (host != null && (oldScale != scale || oldX != x || oldTop != top)) host.Place(scale, x, top);
+                if (host != null && (oldScale != scale || oldX != x || oldTop != top || oldInputs != inputs)) host.Place(scale, x, top, inputs);
                 if (!Enabled && host != null && !DemoRunning) host.Hide();
             }
             catch (Exception ex) { log.Write("overlay config: " + ex.Message); }
@@ -281,7 +292,7 @@ namespace SimCoach
         {
             if (host == null)
             {
-                host = new OverlayHost(scale, x, top);
+                host = new OverlayHost(scale, x, top, inputs);
                 if (host.Error != null) log.Write("ERROR overlay window: " + host.Error);
                 else log.Write("overlay window ready (scale " + scale.ToString(CultureInfo.InvariantCulture) + ")");
             }
@@ -341,7 +352,7 @@ namespace SimCoach
         }
 
         /// <summary>One live frame from the game.</summary>
-        public void Frame(double now, SessionInfo info, double x, double z, double speed, double brake, double throttle)
+        public void Frame(double now, SessionInfo info, double x, double z, double speed, double brake, double throttle, double steer)
         {
             Interlocked.Exchange(ref lastFrameTicks, DateTime.UtcNow.Ticks);
             if (DemoRunning) return;
@@ -357,6 +368,7 @@ namespace SimCoach
                 // from the car park to the line, and back to it after the finish, gets neither
                 // window nor sounds.
                 if (st.OnLap) Beep(st.Sound);
+                st.Throttle = throttle; st.Brake = brake; st.Steer = steer;
                 Last = st.Clone();
                 if (st.Active && st.OnLap) hideAfter = now + 0.7;
                 if (Enabled && now < hideAfter) Host().Update(Last); else if (host != null) host.Hide();
@@ -415,7 +427,7 @@ namespace SimCoach
             {
                 bool driving = DateTime.UtcNow.Ticks - Interlocked.Read(ref lastFrameTicks) < TimeSpan.TicksPerSecond * 2;
                 File.WriteAllText(StateFile, "demo=" + (DemoRunning ? "1" : "0") + "\nenabled=" + (Enabled ? "1" : "0")
-                    + "\nfeatures=sound,move,lift,themes,laponly,traffic,autoplan\ndriving=" + (driving ? "1" : "0") + "\nguide=" + (driving && engine != null ? Path.GetFileName(guideFile) : "") + "\n");
+                    + "\nfeatures=sound,move,lift,themes,laponly,traffic,autoplan,inputs\ndriving=" + (driving ? "1" : "0") + "\nguide=" + (driving && engine != null ? Path.GetFileName(guideFile) : "") + "\n");
             }
             catch { /* the app is reading it right now: the next second will do */ }
         }
@@ -455,6 +467,7 @@ namespace SimCoach
                         double due = offset + wall, wait = due - watch.Elapsed.TotalSeconds;
                         if (wait > 0.002) Thread.Sleep((int)(wait * 1000));
                         CoachState st = eng.Update(due, px, pz, v("speed"), v("brake"), v("throttle"));
+                        st.Throttle = v("throttle"); st.Brake = v("brake"); st.Steer = ix.ContainsKey("steer") ? v("steer") : 0;
                         Beep(st.Sound);
                         Last = st.Clone();
                         h.Update(Last);

@@ -775,7 +775,8 @@ function overlayDemo(root, lap) {
 // throttle points, 2 with a count-down to the braking point; volume 0..1; move: the window
 // can be dragged with the mouse (the plugin ends that by itself once driving starts).
 // theme: the set of sounds (0 soft, 1 race, 2 neon, 3 pulse, 4 the driver's own files in data/sounds)
-const OVERLAY_DEFAULTS = { enabled: true, scale: 1, x: 0.5, top: 0.04, sound: 2, volume: 0.6, theme: 1, move: false };
+// inputs: a strip under the coach's rows with the pedals and the steering wheel
+const OVERLAY_DEFAULTS = { enabled: true, scale: 1, x: 0.5, top: 0.04, sound: 2, volume: 0.6, theme: 1, inputs: false, move: false };
 const OVERLAY_RANGE = { scale: [0.5, 3], x: [0, 1], top: [0, 1], sound: [0, 2], volume: [0.05, 1], theme: [0, 4] };
 function overlaySettings(root, change) {
   const file = path.join(root, '..', 'overlay.txt'), now = { ...OVERLAY_DEFAULTS };
@@ -784,15 +785,17 @@ function overlaySettings(root, change) {
       const eq = line.indexOf('='), k = line.slice(0, eq).trim(), v = line.slice(eq + 1).trim();
       if (k === 'enabled') now.enabled = v !== '0';
       else if (k === 'move') now.move = v === '1';
+      else if (k === 'inputs') now.inputs = v === '1';
       else if (OVERLAY_RANGE[k] && isFinite(Number(v)) && v !== '') now[k] = Number(v);
     }
   } catch { /* not written yet: the defaults */ }
   if (!change) return now;
   if (change.enabled !== undefined) now.enabled = !!change.enabled;
   if (change.move !== undefined) now.move = !!change.move;
+  if (change.inputs !== undefined) now.inputs = !!change.inputs;
   for (const k in OVERLAY_RANGE) if (isFinite(change[k])) now[k] = Math.max(OVERLAY_RANGE[k][0], Math.min(OVERLAY_RANGE[k][1], k === 'sound' || k === 'theme' ? Math.round(change[k]) : change[k]));
   fs.mkdirSync(path.dirname(file), { recursive: true }); // (nothing has been recorded yet on a fresh copy: no data folder)
-  fs.writeFileSync(file, ['enabled=' + (now.enabled ? 1 : 0), 'scale=' + now.scale, 'x=' + now.x, 'top=' + now.top, 'sound=' + now.sound, 'volume=' + now.volume, 'theme=' + now.theme, 'move=' + (now.move ? 1 : 0)].join('\r\n') + '\r\n');
+  fs.writeFileSync(file, ['enabled=' + (now.enabled ? 1 : 0), 'scale=' + now.scale, 'x=' + now.x, 'top=' + now.top, 'sound=' + now.sound, 'volume=' + now.volume, 'theme=' + now.theme, 'inputs=' + (now.inputs ? 1 : 0), 'move=' + (now.move ? 1 : 0)].join('\r\n') + '\r\n');
   return now;
 }
 // Asks the plugin to play its sounds once, in the order they come at a corner.

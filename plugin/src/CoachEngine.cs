@@ -33,6 +33,9 @@ namespace SimCoach
         public int MessageKind;                   // 0 neutral, 1 coach's cue, 2 as planned or better, 3 worse than plan
         public int Sound;                         // to play on this frame: 0 nothing, 1 tick (braking point coming), 2 braking point, 3 throttle point, 4 lift point
         public double S, Speed;
+        // What the driver is doing right now, for the inputs strip of the overlay: pedals in
+        // percent, steering wheel angle in degrees (to the right is positive).
+        public double Throttle, Brake, Steer;
         public CoachState Clone() { return (CoachState)MemberwiseClone(); }
     }
 

@@ -1758,7 +1758,8 @@ function renderOverlayPage() {
   scr.style.aspectRatio = sw + ' / ' + sh;
   // a road to the horizon, so the frame reads as the game's picture
   scr.innerHTML = '<svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40H160"/><path d="M80 40L18 90M80 40L142 90"/><path class="mid" d="M80 40V90"/></svg>';
-  const w = Math.min(1, 640 * st.scale / sw), h = Math.min(1, 138 * st.scale / sh); // the window is 640 × 138 at 100%
+  // the window is 640 × 138 at 100%, and 60 taller with the pedals and steering strip
+  const w = Math.min(1, 640 * st.scale / sw), h = Math.min(1, (st.inputs ? 198 : 138) * st.scale / sh);
   const place = (x, top) => { win.style.left = (1 - w) * x * 100 + '%'; win.style.top = (1 - h) * top * 100 + '%'; };
   win.style.width = w * 100 + '%'; win.style.height = h * 100 + '%';
   win.title = 'Okno nakładki: przeciągnij tam, gdzie ma stać w grze';
@@ -1804,6 +1805,9 @@ function renderOverlayPage() {
   const windowRows = el('div', 'setgroup');
   windowRows.append(row('W czasie jazdy', st.enabled ? '' : 'Okno jest ukryte, prowadzi sam dźwięk.', seg([[1, 'Widoczne'], [0, 'Ukryte']], st.enabled ? 1 : 0, v => set('&enabled=' + v))));
   windowRows.append(row('Rozmiar', '', seg([[0.75, '75%'], [1, '100%'], [1.25, '125%'], [1.5, '150%'], [2, '200%']], st.scale, v => set('&scale=' + v))));
+  windowRows.append(row('Pedały i kierownica', alive && !can('inputs') ? [el('p', 'overr', 'Ten pasek pojawi się po wgraniu nowej wtyczki (SimHub musi zostać uruchomiony ponownie przy zamkniętej grze).')]
+    : st.inputs ? 'Pod wskazówkami coacha: wykres gazu, hamulca i skrętu z ostatnich 5 sekund, słupki pedałów i kierownica obrócona tak jak Twoja.' : '',
+    seg([[1, 'Pokazuj'], [0, 'Ukryj']], st.inputs ? 1 : 0, v => set('&inputs=' + v))));
   right.append(head('02', 'Okno'), windowRows);
 
   // ---- sound: the same guidance for the ears, so the eyes can stay on the road ----

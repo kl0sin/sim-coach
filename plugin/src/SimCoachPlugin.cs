@@ -226,7 +226,7 @@ namespace SimCoach
                     evo ? -1 : d.CurrentLap,
                     evo ? info.RawLastLap : d.LastLapTime.TotalSeconds, info);
                 // The overlay is a convenience: whatever goes wrong in it must not cost a recording.
-                try { if (s.X != 0 || s.Z != 0) coach.Frame(now, info, s.X, s.Z, s.Speed, s.Brake, s.Throttle); }
+                try { if (s.X != 0 || s.Z != 0) coach.Frame(now, info, s.X, s.Z, s.Speed, s.Brake, s.Throttle, s.Steer); }
                 catch (Exception ex) { if (errors++ < 5) log.Write("ERROR in overlay: " + ex); }
             }
             catch (Exception ex)

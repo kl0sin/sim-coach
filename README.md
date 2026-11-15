@@ -25,6 +25,10 @@ Everything runs on your own PC. No account, no cloud, no telemetry leaves the ma
 
 ![The in-game overlay in four states](docs/screenshots/overlay.png)
 
+An optional strip under the coach's rows shows what you are doing yourself: a five-second trace of throttle, brake and steering, the two pedals as bars, and the steering wheel turned as far as the real one. Switch it on with "Pedały i kierownica" on the overlay page. Pedals work in every game SimHub supports; the steering angle is available in Assetto Corsa EVO.
+
+![The overlay with the pedals and steering strip](docs/screenshots/overlay-inputs.png)
+
 Other things worth knowing:
 
 - **Focus mode.** The plan can move its points in only five (or eight) corners at a time, the ones worth the most. A corner met on two laps in a row makes room for the next one.
@@ -159,6 +163,7 @@ The plugin publishes what the overlay shows as SimHub properties (`Coach.Corner`
 
 - The interface is in Polish. Translations are welcome; the strings live in `app/public/app.js` and in the overlay sources.
 - Tested with one game, one track and one car. Other SimHub-supported games should record, but expect rough edges.
+- Traffic is taken from SimHub's list of opponents. In Assetto Corsa EVO multiplayer that list has come back empty so far, so passes driven behind other cars are not recognised there yet.
 - The plugin is written in C# 5 on purpose, so that it builds with the compiler that ships with Windows.
 - The target plan is an estimate from your own laps. It tells you where you have room, not what the car can do.
 
